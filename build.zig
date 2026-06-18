@@ -1,19 +1,22 @@
 const std = @import("std");
 
+/// Selectable rendering/input backend. A backend other than `.none` pulls in
+/// its own dependencies (e.g. `.wio` pulls in wio), so it is opt-in.
+const Backend = enum { none, wio };
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    // The wio + OpenGL backend pulls in the wio dependency, so it is opt-in.
-    // It defaults on when building zicroui directly (so `zig build run` works)
-    // and off when zicroui is consumed as a dependency, unless the consumer
-    // passes `.@"wio-backend" = true`.
+    // The backend defaults to `.wio` when building zicroui directly (so
+    // `zig build run` works) and to `.none` when zicroui is consumed as a
+    // dependency, unless the consumer passes `.backend = .wio`.
     const is_root = b.pkg_hash.len == 0;
-    const enable_wio_backend = b.option(
-        bool,
-        "wio-backend",
-        "Build the optional wio + OpenGL backend module",
-    ) orelse is_root;
+    const backend = b.option(
+        Backend,
+        "backend",
+        "Rendering/input backend to build (none, wio)",
+    ) orelse if (is_root) Backend.wio else .none;
 
     const mod = b.addModule("zicroui", .{
         .root_source_file = b.path("src/zicroui.zig"),
@@ -21,10 +24,10 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    // Compile-time switch read by src/zicroui.zig to decide whether to expose
-    // the `backend` namespace.
+    // Compile-time switch read by src/zicroui.zig to decide which `backend`
+    // namespace to expose.
     const options = b.addOptions();
-    options.addOption(bool, "wio_backend", enable_wio_backend);
+    options.addOption(Backend, "backend", backend);
     mod.addOptions("build_options", options);
 
     const lib = b.addLibrary(.{
@@ -47,9 +50,9 @@ pub fn build(b: *std.Build) void {
     const docs_step = b.step("docs", "Build and install documentation");
     docs_step.dependOn(&install_docs.step);
 
-    if (!enable_wio_backend) return;
+    if (backend != .wio) return;
 
-    // `wio` is a lazy dependency: it is only fetched when the backend (and
+    // `wio` is a lazy dependency: it is only fetched when the wio backend (and
     // therefore the demo) is actually built. The backend lives inside the
     // zicroui module (exposed as `zicroui.backend`), so the wio import is
     // added to the module itself rather than to a separate package.

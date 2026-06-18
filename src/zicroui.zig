@@ -11,13 +11,14 @@ const build_options = @import("build_options");
 
 pub const version = "2.02";
 
-/// Optional batteries-included rendering/input backend built on wio and
-/// fixed-function OpenGL. Only available when the library is built with the
-/// `wio-backend` option enabled; otherwise this is an empty namespace.
-pub const backend = if (build_options.wio_backend)
-    @import("backends/wio/backend.zig")
-else
-    struct {};
+/// Optional batteries-included rendering/input backend selected by the
+/// `backend` build option. `.wio` provides a wio + fixed-function OpenGL
+/// implementation; `.none` (the default for dependents) leaves this an empty
+/// namespace and pulls in no extra dependencies.
+pub const backend = switch (build_options.backend) {
+    .wio => @import("backends/wio/backend.zig"),
+    .none => struct {},
+};
 
 // Fixed-capacity sizing. The library performs no allocation: everything lives
 // inside `Context`.
