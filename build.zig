@@ -60,6 +60,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
         .enable_opengl = true,
+        .enable_drop = true,
     }) orelse return;
     const wio_mod = wio.module("wio");
     mod.addImport("wio", wio_mod);

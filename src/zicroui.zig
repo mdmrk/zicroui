@@ -20,6 +20,15 @@ pub const backend = switch (build_options.backend) {
     .none => struct {},
 };
 
+/// The windowing/input/GL library backing the `.wio` backend, re-exported so a
+/// host can create windows and pump events with the *same* wio module instance
+/// the backend renders into (wio keeps global state, so a separate instance
+/// would not work). Empty namespace when the backend is not `.wio`.
+pub const wio = switch (build_options.backend) {
+    .wio => @import("wio"),
+    .none => struct {},
+};
+
 // Fixed-capacity sizing. The library performs no allocation: everything lives
 // inside `Context`.
 const rootlist_size = 32;
