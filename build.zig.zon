@@ -1,0 +1,20 @@
+.{
+    .name = .zicroui,
+    .version = "2.2.0",
+    .fingerprint = 0xc086b351e3db734b,
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{
+        .wio = .{
+            .url = "https://github.com/ypsvlq/wio/archive/7dfa94088ec8eaf3364c9245e2aabe0df7ed41d5.tar.gz",
+            .hash = "wio-0.0.0-8xHrryukBwBcspnufyow1z6MozlIPWkSDTMVYgiwH2dq",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "demo",
+        "LICENSE",
+        "README.md",
+    },
+}
