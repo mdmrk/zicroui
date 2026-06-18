@@ -1,6 +1,6 @@
 //! Generated from demo/atlas.inl (microui font/icon atlas). Do not edit by hand.
 
-const zu = @import("zicroui");
+const zu = @import("../../zicroui.zig");
 
 pub const width = 128;
 pub const height = 128;

@@ -7,8 +7,17 @@
 //! Original C library: Copyright (c) 2024 rxi, MIT licensed (see LICENSE).
 
 const std = @import("std");
+const build_options = @import("build_options");
 
 pub const version = "2.02";
+
+/// Optional batteries-included rendering/input backend built on wio and
+/// fixed-function OpenGL. Only available when the library is built with the
+/// `wio-backend` option enabled; otherwise this is an empty namespace.
+pub const backend = if (build_options.wio_backend)
+    @import("backends/wio/backend.zig")
+else
+    struct {};
 
 // Fixed-capacity sizing. The library performs no allocation: everything lives
 // inside `Context`.

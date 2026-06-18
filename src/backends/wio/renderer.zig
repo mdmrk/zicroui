@@ -3,7 +3,7 @@
 //! fixed-function OpenGL through wio's GL context.
 
 const wio = @import("wio");
-const zu = @import("zicroui");
+const zu = @import("../../zicroui.zig");
 const gl = @import("gl.zig");
 const atlas = @import("atlas.zig");
 

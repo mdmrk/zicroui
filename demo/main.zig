@@ -4,7 +4,7 @@
 const std = @import("std");
 const wio = @import("wio");
 const zu = @import("zicroui");
-const renderer = @import("renderer.zig");
+const backend = zu.backend;
 
 comptime {
     _ = wio; // ensure the entry point is exported on platforms that need it
@@ -13,10 +13,6 @@ comptime {
 pub const std_options: std.Options = .{
     .logFn = wio.logFn,
 };
-
-// Last known mouse position; wio button events do not carry a position.
-var mouse_x: i32 = 0;
-var mouse_y: i32 = 0;
 
 // Stable storage for uint8Slider's scratch value (its address seeds a control
 // id, so it must not change between frames).
@@ -246,40 +242,6 @@ fn processFrame(ctx: *zu.Context, ui: *Ui) void {
 }
 
 // ===========================================================================
-// Input translation
-// ===========================================================================
-
-fn handleButton(ctx: *zu.Context, button: wio.Button, down: bool) void {
-    const mb: ?zu.MouseButtons = switch (button) {
-        .mouse_left => .{ .left = true },
-        .mouse_right => .{ .right = true },
-        .mouse_middle => .{ .middle = true },
-        else => null,
-    };
-    if (mb) |b| {
-        if (down) ctx.inputMouseDown(mouse_x, mouse_y, b) else ctx.inputMouseUp(mouse_x, mouse_y, b);
-        return;
-    }
-    const key: ?zu.Keys = switch (button) {
-        .left_shift, .right_shift => .{ .shift = true },
-        .left_control, .right_control => .{ .ctrl = true },
-        .left_alt, .right_alt => .{ .alt = true },
-        .enter, .kp_enter => .{ .enter = true },
-        .backspace => .{ .backspace = true },
-        else => null,
-    };
-    if (key) |k| {
-        if (down) ctx.inputKeyDown(k) else ctx.inputKeyUp(k);
-    }
-}
-
-fn handleChar(ctx: *zu.Context, c: u21) void {
-    var buf: [4]u8 = undefined;
-    const n = std.unicode.utf8Encode(c, &buf) catch return;
-    ctx.inputText(buf[0..n]);
-}
-
-// ===========================================================================
 // Entry point
 // ===========================================================================
 
@@ -313,13 +275,12 @@ pub fn main(init: std.process.Init.Minimal) !void {
     window.glMakeContextCurrent(context);
     window.glSwapInterval(1);
 
-    try renderer.init(800, 600);
+    try backend.init(800, 600);
     window.enableTextInput(.{});
 
     var ctx: zu.Context = undefined;
     ctx.init();
-    ctx.text_width = renderer.textWidth;
-    ctx.text_height = renderer.textHeight;
+    backend.attach(&ctx);
 
     var ui: Ui = .{};
     ui.init();
@@ -327,38 +288,19 @@ pub fn main(init: std.process.Init.Minimal) !void {
     loop: while (true) {
         wio.update();
         while (events.pop()) |event| {
-            switch (event) {
-                .close => break :loop,
-                .size_physical => |s| renderer.setSize(s.width, s.height),
-                .mouse => |m| {
-                    mouse_x = m.x;
-                    mouse_y = m.y;
-                    ctx.inputMouseMove(m.x, m.y);
-                },
-                .button_press => |b| handleButton(&ctx, b, true),
-                .button_release => |b| handleButton(&ctx, b, false),
-                .char => |c| handleChar(&ctx, c),
-                .scroll_vertical => |dy| ctx.inputScroll(0, @intFromFloat(dy * -30)),
-                else => {},
-            }
+            if (event == .close) break :loop;
+            backend.processEvent(&ctx, event);
         }
 
         processFrame(&ctx, &ui);
 
-        renderer.clear(zu.color(
+        backend.clear(zu.color(
             @intFromFloat(ui.bg[0]),
             @intFromFloat(ui.bg[1]),
             @intFromFloat(ui.bg[2]),
             255,
         ));
-        var it = ctx.commandIterator();
-        while (it.next()) |cmd| switch (cmd) {
-            .text => |t| renderer.drawText(t.str, t.pos, t.color),
-            .rect => |r| renderer.drawRect(r.rect, r.color),
-            .icon => |ic| renderer.drawIcon(@intCast(@intFromEnum(ic.id)), ic.rect, ic.color),
-            .clip => |cr| renderer.setClip(cr),
-            .jump => {},
-        };
-        renderer.present(&window);
+        backend.render(&ctx);
+        backend.present(&window);
     }
 }

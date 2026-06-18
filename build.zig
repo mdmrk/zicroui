@@ -4,11 +4,28 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    // The wio + OpenGL backend pulls in the wio dependency, so it is opt-in.
+    // It defaults on when building zicroui directly (so `zig build run` works)
+    // and off when zicroui is consumed as a dependency, unless the consumer
+    // passes `.@"wio-backend" = true`.
+    const is_root = b.pkg_hash.len == 0;
+    const enable_wio_backend = b.option(
+        bool,
+        "wio-backend",
+        "Build the optional wio + OpenGL backend module",
+    ) orelse is_root;
+
     const mod = b.addModule("zicroui", .{
         .root_source_file = b.path("src/zicroui.zig"),
         .target = target,
         .optimize = optimize,
     });
+
+    // Compile-time switch read by src/zicroui.zig to decide whether to expose
+    // the `backend` namespace.
+    const options = b.addOptions();
+    options.addOption(bool, "wio_backend", enable_wio_backend);
+    mod.addOptions("build_options", options);
 
     const lib = b.addLibrary(.{
         .name = "zicroui",
@@ -30,11 +47,19 @@ pub fn build(b: *std.Build) void {
     const docs_step = b.step("docs", "Build and install documentation");
     docs_step.dependOn(&install_docs.step);
 
-    const wio = b.dependency("wio", .{
+    if (!enable_wio_backend) return;
+
+    // `wio` is a lazy dependency: it is only fetched when the backend (and
+    // therefore the demo) is actually built. The backend lives inside the
+    // zicroui module (exposed as `zicroui.backend`), so the wio import is
+    // added to the module itself rather than to a separate package.
+    const wio = b.lazyDependency("wio", .{
         .target = target,
         .optimize = optimize,
         .enable_opengl = true,
-    });
+    }) orelse return;
+    const wio_mod = wio.module("wio");
+    mod.addImport("wio", wio_mod);
 
     const demo_mod = b.createModule(.{
         .root_source_file = b.path("demo/main.zig"),
@@ -42,7 +67,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     demo_mod.addImport("zicroui", mod);
-    demo_mod.addImport("wio", wio.module("wio"));
+    demo_mod.addImport("wio", wio_mod);
 
     const demo = b.addExecutable(.{
         .name = "zicroui-demo",
